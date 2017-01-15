@@ -1,4 +1,4 @@
-var toDate = require('../to_date/index.js')
+import toDate from '../to_date/index.js'
 
 /**
  * @category Timestamp Helpers
@@ -21,5 +21,3 @@ export default function getTime (dirtyDate, options) {
   var timestamp = date.getTime()
   return timestamp
 }
-
-module.exports = getTime
