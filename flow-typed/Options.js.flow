@@ -4,7 +4,7 @@
 type Options = {
   weekStartsOn?: number,
   additionalDigits?: 0 | 1 | 2,
-  locale?: Object,
+  locale?: Locale,
   unit?: 's' | 'm' | 'h' | 'd' | 'M' | 'Y',
   partialMethod?: 'floor' | 'ceil' | 'round'
 }

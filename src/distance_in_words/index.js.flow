@@ -7,6 +7,6 @@ declare module.exports: (
   options?: {
     includeSeconds?: boolean,
     addSuffix?: boolean,
-    locale?: Object
+    locale?: Locale
   }
 ) => string

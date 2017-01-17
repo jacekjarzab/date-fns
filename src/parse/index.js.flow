@@ -6,6 +6,6 @@ declare module.exports: (
   formatString: string,
   baseDate: Date | string | number,
   options?: {
-    locale?: Object
+    locale?: Locale
   }
 ) => Date

@@ -5,6 +5,6 @@ declare module.exports: (
   date: Date | string | number,
   format: string,
   options?: {
-    locale?: Object
+    locale?: Locale
   }
 ) => string

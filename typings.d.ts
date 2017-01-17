@@ -8,9 +8,24 @@ type Range = {
 type Options = {
   weekStartsOn?: number,
   additionalDigits?: 0 | 1 | 2,
-  locale?: Object,
+  locale?: Locale,
   unit?: 's' | 'm' | 'h' | 'd' | 'M' | 'Y',
   partialMethod?: 'floor' | 'ceil' | 'round'
+}
+
+type Locale = {
+  distanceInWords?: {
+    localize?: Function
+  },
+  format?: {
+    formatters?: Object,
+    formattingTokensRegExp?: RegExp
+  },
+  parse?: {
+    units?: Object,
+    parsers?: Object,
+    parsingTokensRegExp?: RegExp
+  }
 }
 
 declare module 'date-fns' {
@@ -246,7 +261,7 @@ declare module 'date-fns' {
     options?: {
       includeSeconds?: boolean,
       addSuffix?: boolean,
-      locale?: Object
+      locale?: Locale
     }
   ): string
   namespace distanceInWords {}
@@ -258,7 +273,7 @@ declare module 'date-fns' {
       addSuffix?: boolean,
       unit?: 's' | 'm' | 'h' | 'd' | 'M' | 'Y',
       partialMethod?: 'floor' | 'ceil' | 'round',
-      locale?: Object
+      locale?: Locale
     }
   ): string
   namespace distanceInWordsStrict {}
@@ -336,7 +351,7 @@ declare module 'date-fns' {
     date: Date | string | number,
     format: string,
     options?: {
-      locale?: Object
+      locale?: Locale
     }
   ): string
   namespace format {}
@@ -680,7 +695,7 @@ declare module 'date-fns' {
     formatString: string,
     baseDate: Date | string | number,
     options?: {
-      locale?: Object
+      locale?: Locale
     }
   ): Date
   namespace parse {}
