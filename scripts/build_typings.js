@@ -1,6 +1,8 @@
 const fs = require('fs')
 const docs = require('../dist/date_fns_docs.json')
 
+// Common
+
 const lowerCaseTypes = ['String', 'Number', 'Boolean']
 
 function camelCaseToSnakeCase (string) {
@@ -91,12 +93,54 @@ function getType (types, {props = [], forceArray = false, indent = 1} = {}) {
   return typeStrings.join(' | ')
 }
 
-function getTypeScriptModuleDefinition (name, moduleSuffix = '') {
-  return [`declare module 'date-fns/${camelCaseToSnakeCase(name)}${moduleSuffix}' {`]
-    .concat(`  import {${name}} from 'date-fns'`)
-    .concat(`  export = ${name}`)
+function getFpFnType (params, returns) {
+  const fpParams = params
+    .filter(param => !param.name.includes('.'))
+    .reverse()
+    .filter((_, index) => index !== 0)
+    .map(param => param.type.names)
+
+  fpParams.push(returns)
+
+  return fpParams
+    .map(type => `(${getType(type)})`)
+    .join(' => ')
+}
+
+function getFpFnWithOptionsType (params, returns) {
+  const fpParams = params
+    .filter(param => !param.name.includes('.'))
+    .reverse()
+    .map(param => param.type.names)
+
+  fpParams.push(returns)
+
+  return fpParams
+    .map(type => `(${getType(type)})`)
+    .join(' => ')
+}
+
+// TypeScript
+
+function getTypeScriptTypeAlias (type) {
+  const name = type.content.name
+  const properties = getParams(type.content.properties, {indent: 0})
+
+  return `type ${name} = ${properties}`
+}
+
+function getTypeScriptDateFnsModuleDefinition (fns) {
+  return ['declare module \'date-fns\' {']
+    .concat(fns.map(getTypeScriptFnDefinition).join('\n\n'))
     .concat('}')
     .join('\n')
+}
+
+function getTypeScriptDateFnsFpModuleDefinition (fns) {
+  return ['declare module \'date-fns/fp\' {']
+  .concat(fns.map(getTypeScriptFpFnDefinition).join('\n\n'))
+  .concat('}')
+  .join('\n')
 }
 
 function getTypeScriptFnDefinition (fn) {
@@ -105,26 +149,41 @@ function getTypeScriptFnDefinition (fn) {
   const params = getParams(fn.content.params, {indent: 1, leftBorder: '(', rightBorder: ')'})
   const returns = getType(fn.content.returns[0].type.names)
 
-  const fnDefinition = [`  function ${name} ${params}: ${returns}`]
+  return [`  function ${name} ${params}: ${returns}`]
     .concat(`  namespace ${name} {}`)
     .join('\n')
-
-  const moduleDefinition = getTypeScriptModuleDefinition(name)
-  const moduleIndexDefinition = getTypeScriptModuleDefinition(name, '/index')
-
-  return {
-    fnDefinition,
-    moduleDefinition,
-    moduleIndexDefinition
-  }
 }
 
-function getTypeAlias (type) {
-  const name = type.content.name
-  const properties = getParams(type.content.properties, {indent: 0})
+function getTypeScriptModuleDefinition (moduleSuffix, fn) {
+  const name = fn.content.name
 
-  return `type ${name} = ${properties}`
+  return [`declare module 'date-fns/${camelCaseToSnakeCase(name)}${moduleSuffix}' {`]
+    .concat(`  import {${name}} from 'date-fns'`)
+    .concat(`  export = ${name}`)
+    .concat('}')
+    .join('\n')
 }
+
+function generateTypeScriptTypings (docs) {
+  const fns = Object.keys(docs)
+    .filter(key => key.endsWith(' Helpers'))
+    .map(category => docs[category])
+    .reduce((previousValue, newValue) => [...previousValue, ...newValue], [])
+    .sort((a, b) => a.content.name.localeCompare(b.content.name))
+
+  const types = docs['Types']
+
+  const definitionString = ['// This file is generated automatically by `scripts/build_typings.js`. Please, don\'t change it.']
+    .concat(types.map(getTypeScriptTypeAlias).join('\n\n'))
+    .concat(getTypeScriptDateFnsModuleDefinition(fns))
+    .concat(fns.map(getTypeScriptModuleDefinition.bind(null, '')).join('\n\n'))
+    .concat(fns.map(getTypeScriptModuleDefinition.bind(null, '/index')).join('\n\n'))
+    .join('\n\n')
+
+  fs.writeFileSync('./typings.d.ts', `${definitionString}\n`)
+}
+
+// Flow
 
 function generateFlowTypeAlias (type) {
   const name = type.content.name
@@ -155,32 +214,32 @@ function generateFlowFnTyping (fn) {
   fs.writeFileSync(filename, typingString)
 }
 
-function generateTypeScriptTypings (docs) {
-  const fns = Object.keys(docs)
-    .filter(key => key.endsWith(' Helpers'))
-    .map(category => docs[category])
-    .reduce((previousValue, newValue) => [...previousValue, ...newValue], [])
-    .sort((a, b) => a.content.name.localeCompare(b.content.name))
-    .map(getTypeScriptFnDefinition)
+function generateFlowFpFnTyping (fn) {
+  const filename = `./src/fp/${fn.content.name}/index.js.flow`
 
-  const aliases = docs['Types']
-    .map(getTypeAlias)
+  const type = getFpFnType(fn.content.params, fn.content.returns[0].type.names)
 
-  const definitionString = ['// This file is generated automatically by `scripts/build_typings.js`. Please, don\'t change it.']
+  const typingString = ['// @flow']
+    .concat('// This file is generated automatically by `scripts/build_typings.js`. Please, don\'t change it.')
     .concat('')
-    .concat(`${aliases.join('\n\n')}`)
-    .concat('')
-    .concat('declare module \'date-fns\' {')
-    .concat(`${fns.map(fn => fn.fnDefinition).join('\n\n')}`)
-    .concat('}')
-    .concat('')
-    .concat(`${fns.map(fn => fn.moduleDefinition).join('\n\n')}`)
-    .concat('')
-    .concat(`${fns.map(fn => fn.moduleIndexDefinition).join('\n\n')}`)
-    .concat('')
+    .concat(`declare module.exports: ${type}\n`)
     .join('\n')
 
-  fs.writeFileSync('./typings.d.ts', definitionString)
+  fs.writeFileSync(filename, typingString)
+}
+
+function generateFlowFpFnWithOptionsTyping (fn) {
+  const filename = `./src/fp/${fn.content.name}WithOptions/index.js.flow`
+
+  const type = getFpFnWithOptionsType(fn.content.params, fn.content.returns[0].type.names)
+
+  const typingString = ['// @flow']
+    .concat('// This file is generated automatically by `scripts/build_typings.js`. Please, don\'t change it.')
+    .concat('')
+    .concat(`declare module.exports: ${type}\n`)
+    .join('\n')
+
+  fs.writeFileSync(filename, typingString)
 }
 
 function generateFlowTypings (docs) {
@@ -191,7 +250,11 @@ function generateFlowTypings (docs) {
     .filter(key => key.endsWith(' Helpers'))
     .map(category => docs[category])
     .reduce((previousValue, newValue) => [...previousValue, ...newValue], [])
-    .forEach(generateFlowFnTyping)
+    .forEach((fn) => {
+      generateFlowFnTyping(fn)
+      generateFlowFpFnTyping(fn)
+      generateFlowFpFnWithOptionsTyping(fn)
+    })
 }
 
 generateTypeScriptTypings(docs)
