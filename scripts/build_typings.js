@@ -130,10 +130,15 @@ function getTypeScriptTypeAlias (type) {
 }
 
 function getTypeScriptDateFnsModuleDefinition (fns) {
-  return ['declare module \'date-fns\' {']
+  const definition = ['declare module \'date-fns\' {']
     .concat(fns.map(getTypeScriptFnDefinition).join('\n\n'))
     .concat('}')
     .join('\n')
+
+  return {
+    name: 'date-fns',
+    definition
+  }
 }
 
 function getTypeScriptDateFnsFpModuleDefinition (fns) {
@@ -151,16 +156,21 @@ function getTypeScriptDateFnsFpModuleDefinition (fns) {
     }
   })
 
-  const definitions = fpFns
+  const fnDefinitions = fpFns
     .concat(fpFnsWithOptions)
     .sort((a, b) => a.name.localeCompare(b.name))
     .map(fn => fn.definition)
     .join('\n\n')
 
-  return ['declare module \'date-fns/fp\' {']
-    .concat(definitions)
+  const definition = ['declare module \'date-fns/fp\' {']
+    .concat(fnDefinitions)
     .concat('}')
     .join('\n')
+
+  return {
+    name: 'date-fns/fp',
+    definition
+  }
 }
 
 function getTypeScriptFnDefinition (fn) {
@@ -196,32 +206,50 @@ function getTypeScriptFpFnWithOptionsDefinition (fn) {
 
 function getTypeScriptFnModuleDefinition (moduleSuffix, fn) {
   const name = fn.content.name
+  const moduleName = `date-fns/${camelCaseToSnakeCase(name)}${moduleSuffix}`
 
-  return [`declare module 'date-fns/${camelCaseToSnakeCase(name)}${moduleSuffix}' {`]
+  const definition = [`declare module '${moduleName}' {`]
     .concat(`  import {${name}} from 'date-fns'`)
     .concat(`  export = ${name}`)
     .concat('}')
     .join('\n')
+
+  return {
+    name: moduleName,
+    definition
+  }
 }
 
 function getTypeScriptFpFnModuleDefinition (moduleSuffix, fn) {
   const name = fn.content.name
+  const moduleName = `date-fns/fp/${name}${moduleSuffix}`
 
-  return [`declare module 'date-fns/fp/${name}${moduleSuffix}' {`]
+  const definition = [`declare module '${moduleName}' {`]
     .concat(`  import {${name}} from 'date-fns/fp'`)
     .concat(`  export = ${name}`)
     .concat('}')
     .join('\n')
+
+  return {
+    name: moduleName,
+    definition
+  }
 }
 
 function getTypeScriptFpFnWithOptionsModuleDefinition (moduleSuffix, fn) {
   const name = fn.content.name
+  const moduleName = `date-fns/fp/${name}WithOptions${moduleSuffix}`
 
-  return [`declare module 'date-fns/fp/${name}WithOptions${moduleSuffix}' {`]
+  const definition = [`declare module '${moduleName}' {`]
     .concat(`  import {${name}WithOptions} from 'date-fns/fp'`)
     .concat(`  export = ${name}WithOptions`)
     .concat('}')
     .join('\n')
+
+  return {
+    name: moduleName,
+    definition
+  }
 }
 
 function generateTypeScriptTypings (docs) {
@@ -231,18 +259,26 @@ function generateTypeScriptTypings (docs) {
     .reduce((previousValue, newValue) => [...previousValue, ...newValue], [])
     .sort((a, b) => a.content.name.localeCompare(b.content.name))
 
-  const types = docs['Types']
+  const typeDefinitions = docs['Types']
+    .map(getTypeScriptTypeAlias)
 
-  const definitionString = ['// This file is generated automatically by `scripts/build_typings.js`. Please, don\'t change it.']
-    .concat(types.map(getTypeScriptTypeAlias))
-    .concat(getTypeScriptDateFnsModuleDefinition(fns))
-    .concat(getTypeScriptDateFnsFpModuleDefinition(fns))
+  const moduleDefinitions = [getTypeScriptDateFnsModuleDefinition(fns)]
     .concat(fns.map(getTypeScriptFnModuleDefinition.bind(null, '')))
     .concat(fns.map(getTypeScriptFnModuleDefinition.bind(null, '/index')))
+    .map(module => module.definition)
+
+  const fpModuleDefinitions = [getTypeScriptDateFnsFpModuleDefinition(fns)]
     .concat(fns.map(getTypeScriptFpFnModuleDefinition.bind(null, '')))
     .concat(fns.map(getTypeScriptFpFnModuleDefinition.bind(null, '/index')))
     .concat(fns.map(getTypeScriptFpFnWithOptionsModuleDefinition.bind(null, '')))
     .concat(fns.map(getTypeScriptFpFnWithOptionsModuleDefinition.bind(null, '/index')))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(module => module.definition)
+
+  const definitionString = ['// This file is generated automatically by `scripts/build_typings.js`. Please, don\'t change it.']
+    .concat(typeDefinitions)
+    .concat(moduleDefinitions)
+    .concat(fpModuleDefinitions)
     .join('\n\n')
 
   fs.writeFileSync('./typings.d.ts', `${definitionString}\n`)
