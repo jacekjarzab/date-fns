@@ -137,10 +137,30 @@ function getTypeScriptDateFnsModuleDefinition (fns) {
 }
 
 function getTypeScriptDateFnsFpModuleDefinition (fns) {
+  const fpFns = fns.map(fn => {
+    return {
+      name: fn.content.name,
+      definition: getTypeScriptFpFnDefinition(fn)
+    }
+  })
+
+  const fpFnsWithOptions = fns.map(fn => {
+    return {
+      name: `${fn.content.name}WithOption`,
+      definition: getTypeScriptFpFnWithOptionsDefinition(fn)
+    }
+  })
+
+  const definitions = fpFns
+    .concat(fpFnsWithOptions)
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(fn => fn.definition)
+    .join('\n\n')
+
   return ['declare module \'date-fns/fp\' {']
-  .concat(fns.map(getTypeScriptFpFnDefinition).join('\n\n'))
-  .concat('}')
-  .join('\n')
+    .concat(definitions)
+    .concat('}')
+    .join('\n')
 }
 
 function getTypeScriptFnDefinition (fn) {
@@ -154,12 +174,52 @@ function getTypeScriptFnDefinition (fn) {
     .join('\n')
 }
 
-function getTypeScriptModuleDefinition (moduleSuffix, fn) {
+function getTypeScriptFpFnDefinition (fn) {
+  const name = fn.content.name
+
+  const type = getFpFnType(fn.content.params, fn.content.returns[0].type.names)
+
+  return [`  let ${name}: ${type}`]
+    .concat(`  namespace ${name} {}`)
+    .join('\n')
+}
+
+function getTypeScriptFpFnWithOptionsDefinition (fn) {
+  const name = fn.content.name
+
+  const type = getFpFnWithOptionsType(fn.content.params, fn.content.returns[0].type.names)
+
+  return [`  let ${name}WithOptions: ${type}`]
+    .concat(`  namespace ${name}WithOptions {}`)
+    .join('\n')
+}
+
+function getTypeScriptFnModuleDefinition (moduleSuffix, fn) {
   const name = fn.content.name
 
   return [`declare module 'date-fns/${camelCaseToSnakeCase(name)}${moduleSuffix}' {`]
     .concat(`  import {${name}} from 'date-fns'`)
     .concat(`  export = ${name}`)
+    .concat('}')
+    .join('\n')
+}
+
+function getTypeScriptFpFnModuleDefinition (moduleSuffix, fn) {
+  const name = fn.content.name
+
+  return [`declare module 'date-fns/fp/${name}${moduleSuffix}' {`]
+    .concat(`  import {${name}} from 'date-fns/fp'`)
+    .concat(`  export = ${name}`)
+    .concat('}')
+    .join('\n')
+}
+
+function getTypeScriptFpFnWithOptionsModuleDefinition (moduleSuffix, fn) {
+  const name = fn.content.name
+
+  return [`declare module 'date-fns/fp/${name}WithOptions${moduleSuffix}' {`]
+    .concat(`  import {${name}WithOptions} from 'date-fns/fp'`)
+    .concat(`  export = ${name}WithOptions`)
     .concat('}')
     .join('\n')
 }
@@ -174,10 +234,15 @@ function generateTypeScriptTypings (docs) {
   const types = docs['Types']
 
   const definitionString = ['// This file is generated automatically by `scripts/build_typings.js`. Please, don\'t change it.']
-    .concat(types.map(getTypeScriptTypeAlias).join('\n\n'))
+    .concat(types.map(getTypeScriptTypeAlias))
     .concat(getTypeScriptDateFnsModuleDefinition(fns))
-    .concat(fns.map(getTypeScriptModuleDefinition.bind(null, '')).join('\n\n'))
-    .concat(fns.map(getTypeScriptModuleDefinition.bind(null, '/index')).join('\n\n'))
+    .concat(getTypeScriptDateFnsFpModuleDefinition(fns))
+    .concat(fns.map(getTypeScriptFnModuleDefinition.bind(null, '')))
+    .concat(fns.map(getTypeScriptFnModuleDefinition.bind(null, '/index')))
+    .concat(fns.map(getTypeScriptFpFnModuleDefinition.bind(null, '')))
+    .concat(fns.map(getTypeScriptFpFnModuleDefinition.bind(null, '/index')))
+    .concat(fns.map(getTypeScriptFpFnWithOptionsModuleDefinition.bind(null, '')))
+    .concat(fns.map(getTypeScriptFpFnWithOptionsModuleDefinition.bind(null, '/index')))
     .join('\n\n')
 
   fs.writeFileSync('./typings.d.ts', `${definitionString}\n`)
