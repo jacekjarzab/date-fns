@@ -34,7 +34,7 @@ var MILLISECONDS_IN_WEEK = 604800000
  * )
  * //=> 2
  */
-export default differenceInCalendarWeeks (dirtyDateLeft, dirtyDateRight, options) {
+export default function differenceInCalendarWeeks (dirtyDateLeft, dirtyDateRight, options) {
   var startOfWeekLeft = startOfWeek(dirtyDateLeft, options)
   var startOfWeekRight = startOfWeek(dirtyDateRight, options)
 

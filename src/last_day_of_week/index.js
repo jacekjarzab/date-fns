@@ -23,7 +23,7 @@ import toDate from '../to_date/index.js'
  * var result = lastDayOfWeek(new Date(2014, 8, 2, 11, 55, 0), {weekStartsOn: 1})
  * //=> Sun Sep 07 2014 00:00:00
  */
-export default lastDayOfWeek (dirtyDate, options) {
+export default function lastDayOfWeek (dirtyDate, options) {
   var weekStartsOn = options ? (options.weekStartsOn || 0) : 0
 
   var date = toDate(dirtyDate, options)

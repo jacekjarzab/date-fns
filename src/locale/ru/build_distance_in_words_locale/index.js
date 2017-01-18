@@ -43,7 +43,7 @@ function buildLocalizeTokenFn (scheme) {
   }
 }
 
-export default buildDistanceInWordsLocale () {
+export default function buildDistanceInWordsLocale () {
   var distanceInWordsLocale = {
     lessThanXSeconds: buildLocalizeTokenFn({
       regular: {
